@@ -71,6 +71,33 @@ def predict(raw_path: Path, models_dir: Path, prediction_time=None) -> dict:
     }
 
 
+def predict_peak(raw_path: Path, models_dir: Path, prediction_time=None) -> dict:
+    """Return the highest forecast among the configured horizons.
+
+    Peak selection is based on the point forecast. P50 and P90 from the same
+    horizon are included for context. No capacity threshold is assumed.
+    """
+    result = predict(raw_path, models_dir, prediction_time)
+    peak = max(result["forecast"], key=lambda item: item["point_prediction"])
+    peak_time = pd.Timestamp(result["prediction_time"]) + pd.Timedelta(
+        minutes=int(peak["horizon_minutes"])
+    )
+
+    return {
+        "model_version": result["model_version"],
+        "prediction_time": result["prediction_time"],
+        "current_active_vehicles": result["current_active_vehicles"],
+        "peak_forecast": {
+            "horizon_minutes": peak["horizon_minutes"],
+            "forecast_timestamp": peak_time.isoformat(),
+            "point_prediction": peak["point_prediction"],
+            "p50_prediction": peak["p50_prediction"],
+            "p90_prediction": peak["p90_prediction"],
+        },
+        "all_forecasts": result["forecast"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run SSK occupancy predictions.")
     parser.add_argument("--raw", type=Path, default=DEFAULT_RAW)
