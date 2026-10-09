@@ -3,13 +3,22 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 
 from predict import predict, predict_peak
 
 app = FastAPI(title="SSK Vehicle Occupancy Forecast API", version="1.0.0")
 RAW_DEFAULT = Path("data/raw/Vehicle_Data_ DwellTime _Tra.xlsx")
 MODELS_DIR = Path("models")
+
+
+def _resolve_prediction_time(request: Request, form_value: str | None) -> str | None:
+    """Accept prediction_time from form-data (Swagger/Postman body) or the URL query string."""
+    value = form_value or request.query_params.get("prediction_time")
+    if value is None:
+        return None
+    value = value.strip().strip('"').strip("'")
+    return value or None
 
 
 @app.get("/health")
@@ -19,13 +28,17 @@ def health() -> dict:
 
 @app.post("/predict")
 async def forecast(
+    request: Request,
     file: UploadFile | None = File(default=None),
     prediction_time: str | None = Form(default=None),
 ) -> dict:
     """Predict occupancy from an optional uploaded raw InOut Excel workbook.
 
     If no file is uploaded, the default workbook under data/raw/ is used.
+    prediction_time can be sent as a form-data field or as a ?prediction_time= query parameter.
     """
+    prediction_time = _resolve_prediction_time(request, prediction_time)
+
     if file is None:
         raw_path = RAW_DEFAULT
         try:
@@ -49,12 +62,19 @@ async def forecast(
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
 
+
 @app.post("/predict/peak")
 async def forecast_peak(
+    request: Request,
     file: UploadFile | None = File(default=None),
     prediction_time: str | None = Form(default=None),
 ) -> dict:
-    """Return the highest predicted occupancy across all configured horizons."""
+    """Return the highest predicted occupancy across all configured horizons.
+
+    prediction_time can be sent as a form-data field or as a ?prediction_time= query parameter.
+    """
+    prediction_time = _resolve_prediction_time(request, prediction_time)
+
     if file is None:
         raw_path = RAW_DEFAULT
         try:
