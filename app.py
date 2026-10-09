@@ -3,7 +3,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from predict import predict, predict_peak
 
@@ -20,7 +20,7 @@ def health() -> dict:
 @app.post("/predict")
 async def forecast(
     file: UploadFile | None = File(default=None),
-    prediction_time: str | None = None,
+    prediction_time: str | None = Form(default=None),
 ) -> dict:
     """Predict occupancy from an optional uploaded raw InOut Excel workbook.
 
@@ -52,7 +52,7 @@ async def forecast(
 @app.post("/predict/peak")
 async def forecast_peak(
     file: UploadFile | None = File(default=None),
-    prediction_time: str | None = None,
+    prediction_time: str | None = Form(default=None),
 ) -> dict:
     """Return the highest predicted occupancy across all configured horizons."""
     if file is None:
@@ -77,4 +77,3 @@ async def forecast_peak(
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
-
